@@ -31,6 +31,10 @@ h1{font-size:19px;margin:0 0 4px;font-weight:700}
 .tag{font-size:13px;font-weight:700;color:#fff;background:var(--acc);padding:3px 10px;border-radius:8px}
 .tag.squeeze{background:var(--orange)}
 .tag.cohort{background:#5b6b8c}
+.tag.weekly{background:#2f8f6b}
+.spark{width:100%;height:30px;display:block;margin-top:6px}
+.cksub{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.4}
+.sp-empty{color:var(--sub)}
 .cond{font-size:12px;color:var(--sub)}
 .meta{font-size:12px;color:var(--sub);margin-bottom:8px}
 .meta b{color:var(--ink)}
@@ -130,12 +134,14 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 /* ============ 数据源配置（迭代时只改这里） ============ */
 const GIST = {
   data:   "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_data.json",
-  cohort: "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_cohort.json"
+  cohort: "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_cohort.json",
+  history:"https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_open_history.json"
 };
 /* =================================================== */
 /* 收口版(挤压)是否显示：聚焦开口版时设为 false 即可隐藏（含列表区与规则说明），改 true 即恢复 */
 const SHOW_SQUEEZE = false;
 let COHORT_SAMPLES = []; // 原始 cohort 样本（含 pending），供「观察中」弹窗读取明细
+let HISTORY = [];       // 全局开口币数时间序列（周报数据底座）
 function star(n){n=parseInt(n||1);return n<=1?'—':`★ ${n}连`;}
 function card(r){
   const rows=r.rows, best=rows.reduce((a,b)=>b.pct_above>a.pct_above?b:a), maxbw=Math.max(...rows.map(x=>x.bandwidth));
@@ -209,7 +215,7 @@ function renderRules(o){
 function render(o){
   renderRules(o);
   document.getElementById('secs').innerHTML =
-    section('open', o.open) + (SHOW_SQUEEZE ? section('squeeze', o.squeeze) : '') + cohortSection(o);
+    section('open', o.open) + (SHOW_SQUEEZE ? section('squeeze', o.squeeze) : '') + cohortSection(o) + weeklySection(HISTORY);
 }
 /* ============ cohort 统计（前端复刻 cohort_stats()） ============ */
 function wilson(h, n, z=1.96){
@@ -279,19 +285,93 @@ function closePendingModal(){
 }
 document.getElementById('pendingMask').addEventListener('click', function(e){ if(e.target.id==='pendingMask') closePendingModal(); });
 
+/* ============ 周报面板：开口广度 vs BTC（全部前端自算，单一数据底座） ============ */
+function pearson(x, y){
+  const p=[];
+  for(let i=0;i<x.length;i++){ if(x[i]!=null && y[i]!=null && !isNaN(x[i]) && !isNaN(y[i])) p.push([x[i],y[i]]); }
+  const n=p.length;
+  if(n<3) return null;
+  const mx=p.reduce((a,b)=>a+b[0],0)/n, my=p.reduce((a,b)=>a+b[1],0)/n;
+  let num=0,dx=0,dy=0;
+  for(const a of p){ num+=(a[0]-mx)*(a[1]-my); dx+=(a[0]-mx)**2; dy+=(a[1]-my)**2; }
+  return (dx&&dy) ? num/Math.sqrt(dx*dy) : null;
+}
+function sparkline(vals, color){
+  if(!vals || vals.length<2) return '<span class="sp-empty">—</span>';
+  const w=100,h=30,mn=Math.min(...vals),mx=Math.max(...vals),rng=(mx-mn)||1;
+  const step=w/(vals.length-1);
+  const pts=vals.map((v,i)=>`${(i*step).toFixed(1)},${(h-((v-mn)/rng)*h).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color||'var(--orange)'}" stroke-width="2"/></svg>`;
+}
+function weeklySection(history){
+  if(!history || !history.length){
+    return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span></div>`+
+      `<div class="empty">数据底座待上线：后端合并部署后开始积累「全局开口币数」时间序列，约 1–2 次扫描后即可出图。</div></section>`;
+  }
+  const DAY=86400000, nowMs=Date.now();
+  const recs=history.filter(r=>{
+    const t=Date.parse((r.t||'').replace(' ','T'));
+    return !isNaN(t) && (nowMs-t)<=30*DAY;
+  }).sort((a,b)=>Date.parse(a.t.replace(' ','T'))-Date.parse(b.t.replace(' ','T')));
+  // 按 UTC 日期聚合：每日去重开口币集合 + 平均 open_count + 当日 BTC 7d 波动/收益
+  const byDay={};
+  for(const r of recs){
+    const d=(r.t||'').slice(0,10);
+    if(!byDay[d]) byDay[d]={syms:new Set(),counts:[],vol:null,ret:null};
+    if(Array.isArray(r.open_syms)) r.open_syms.forEach(s=>byDay[d].syms.add(s));
+    if(r.open_count!=null) byDay[d].counts.push(r.open_count);
+    if(r.btc_7d_vol!=null) byDay[d].vol=r.btc_7d_vol;
+    if(r.btc_7d_ret!=null) byDay[d].ret=r.btc_7d_ret;
+  }
+  const days=Object.keys(byDay).sort();
+  const daily=days.map(d=>{
+    const o=byDay[d];
+    return {date:d, distinct:o.syms.size, avgCount:o.counts.length?o.counts.reduce((a,b)=>a+b,0)/o.counts.length:0, vol:o.vol, ret:o.ret};
+  });
+  const last7=daily.slice(-7);
+  const breadth7=last7.map(x=>x.distinct);
+  const volSeries=daily.map(x=>x.vol).filter(v=>v!=null);
+  const latest=daily[daily.length-1];
+  // 滚动 ρ：近 30 天日度配对（去重广度 vs BTC 7d 波动），基于同一数据底座自算
+  const xs=daily.map(x=>x.distinct), ys=daily.map(x=>x.vol);
+  const paired=[];
+  for(let i=0;i<daily.length;i++){ if(xs[i]!=null && ys[i]!=null) paired.push([xs[i],ys[i]]); }
+  const rho=pearson(paired.map(p=>p[0]), paired.map(p=>p[1]));
+  const bLatest=breadth7.length?breadth7[breadth7.length-1]:0;
+  const bAvg7=breadth7.length?breadth7.reduce((a,b)=>a+b,0)/breadth7.length:0;
+  let bTotal=0; { const s=new Set(); recs.forEach(r=>Array.isArray(r.open_syms)&&r.open_syms.forEach(x=>s.add(x))); bTotal=s.size; }
+  const volLatest=(latest&&latest.vol!=null)?latest.vol:(volSeries.length?volSeries[volSeries.length-1]:null);
+  const rhoNote = rho==null ? '样本不足' : (rho>=0 ? '正相关：BTC 越平静，开口越少' : '负相关');
+  return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span>`+
+    `<span class="cond">近7天去重开口币数 ｜ BTC 7d 年化波动率 ｜ 滚动 ρ(广度,波动)</span></div>`+
+    `<div class="cohort-grid">`+
+      `<div class="c"><div class="ck">近7天开口广度（去重/日）</div><div class="cv">${bLatest}</div>${sparkline(breadth7,'var(--orange)')}`+
+        `<div class="cksub">7日均 ${bAvg7.toFixed(1)} ｜ 区间累计去重 ${bTotal}</div></div>`+
+      `<div class="c"><div class="ck">BTC 7d 波动率（年化%）</div><div class="cv">${volLatest!=null?volLatest.toFixed(1):'—'}</div>${sparkline(volSeries,'#5b8def')}</div>`+
+      `<div class="c"><div class="ck">滚动 ρ（近30天日度）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
+        `<div class="cksub">${rhoNote} ｜ n=${paired.length} 天</div></div>`+
+    `</div>`+
+    `<div class="cnote">口径：广度 = 当日去重开口币数（生产三条件：1h 带宽≥50% 且站上轨 + 日线 EMA200&gt;MA200 发散≥2%）；BTC 波动与 ρ 均基于同一历史文件自算，未跨源，避免错配。</div>`+
+    `</section>`;
+}
+
 /* ============ 数据拉取：直连 Gist raw（双文件合并） ============ */
 async function poll(){
   try{
-    const [dr, cr] = await Promise.all([
+    const [dr, cr, hr] = await Promise.all([
       fetch(GIST.data,   {cache:'no-store'}),
-      fetch(GIST.cohort, {cache:'no-store'})
+      fetch(GIST.cohort, {cache:'no-store'}),
+      fetch(GIST.history,{cache:'no-store'})
     ]);
     if(!dr.ok) return;
     const data = await dr.json();
     let cohortJson = null;
     try{ if(cr.ok) cohortJson = await cr.json(); }catch(e){}
+    let historyJson = null;
+    try{ if(hr.ok) historyJson = await hr.json(); }catch(e){}
     data.cohort = buildCohort(cohortJson);
     COHORT_SAMPLES = (cohortJson && Array.isArray(cohortJson.samples)) ? cohortJson.samples : [];
+    HISTORY = (historyJson && Array.isArray(historyJson)) ? historyJson : [];
     render(data);
   }catch(e){}
 }
