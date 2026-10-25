@@ -338,7 +338,7 @@ function weeklySection(history){
   const breadth7=last7.map(x=>x.distinct);
   const volSeries=daily.map(x=>x.vol).filter(v=>v!=null);
   const latest=daily[daily.length-1];
-  // 滚动 ρ：用原始 4h 扫描点（不日聚合），瞬时广度(open_count) vs 当次 BTC 7d 波动，基于同一数据底座自算
+  // 滚动 ρ：用原始 30m 扫描点（不日聚合），瞬时广度(open_count) vs 当次 BTC 7d 波动，基于同一数据底座自算
   const xsR=recs.map(r=>(r.open_count!=null?r.open_count:0));
   const ysR=recs.map(r=>(r.btc_7d_vol!=null?r.btc_7d_vol:null));
   const paired=[];
@@ -359,7 +359,7 @@ function weeklySection(history){
       `<div class="c"><div class="ck">BTC 7d 波动率（年化%）</div><div class="cv">${volLatest!=null?volLatest.toFixed(1):'—'}</div>`+
       `<div class="vtier" style="color:${vTier.c}">${vTier.t}</div>`+
       `${sparkline(volSeries,'#5b8def')}</div>`+
-      `<div class="c"><div class="ck">滚动 ρ（4h粒度·近30天）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
+      `<div class="c"><div class="ck">滚动 ρ（30m粒度·近30天）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
         `<div class="cksub">${rhoNote} ｜ n=${paired.length} 点</div></div>`+
     `</div>`+
     `<div class="cnote">口径：广度 = 当日去重开口币数（生产三条件：1h 带宽≥50% 且站上轨 + 日线 EMA200&gt;MA200 发散≥2%）；BTC 波动与 ρ 均基于同一历史文件自算，未跨源，避免错配。档位：&lt;30% 极平静 ｜ 30%–60% 正常市 ｜ ≥60% 躁动。</div>`+
@@ -423,7 +423,7 @@ function updateLive(){
   else ago=Math.round(diffMin/1440)+' 天前';
   let color,dot;
   if(diffMin<30){color='#3fb6a8';dot='●';}
-  else if(diffMin<240){color='#5b8def';dot='●';}
+  else if(diffMin<90){color='#5b8def';dot='●';}
   else {color='#e8743b';dot='●';}
   el.innerHTML=dot+' 最后扫描 '+ago;
   el.style.color=color;
