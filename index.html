@@ -308,6 +308,12 @@ function weeklySection(history){
     return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span></div>`+
       `<div class="empty">数据底座待上线：后端合并部署后开始积累「全局开口币数」时间序列，约 1–2 次扫描后即可出图。</div></section>`;
   }
+  function volTier(v){
+    if(v==null) return {t:'—', c:'#8aa0c0'};
+    if(v<30) return {t:'极平静', c:'#3fb6a8'};
+    if(v<60) return {t:'正常市', c:'#5b8def'};
+    return {t:'躁动', c:'#e8743b'};
+  }
   const DAY=86400000, nowMs=Date.now();
   const recs=history.filter(r=>{
     const t=Date.parse((r.t||'').replace(' ','T'));
@@ -341,17 +347,20 @@ function weeklySection(history){
   const bAvg7=breadth7.length?breadth7.reduce((a,b)=>a+b,0)/breadth7.length:0;
   let bTotal=0; { const s=new Set(); recs.forEach(r=>Array.isArray(r.open_syms)&&r.open_syms.forEach(x=>s.add(x))); bTotal=s.size; }
   const volLatest=(latest&&latest.vol!=null)?latest.vol:(volSeries.length?volSeries[volSeries.length-1]:null);
+  const vTier = volTier(volLatest);
   const rhoNote = rho==null ? '样本不足' : (rho>=0 ? '正相关：BTC 越平静，开口越少' : '负相关');
   return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span>`+
     `<span class="cond">近7天去重开口币数 ｜ BTC 7d 年化波动率 ｜ 滚动 ρ(广度,波动)</span></div>`+
     `<div class="cohort-grid">`+
       `<div class="c"><div class="ck">近7天开口广度（去重/日）</div><div class="cv">${bLatest}</div>${sparkline(breadth7,'var(--orange)')}`+
         `<div class="cksub">7日均 ${bAvg7.toFixed(1)} ｜ 区间累计去重 ${bTotal}</div></div>`+
-      `<div class="c"><div class="ck">BTC 7d 波动率（年化%）</div><div class="cv">${volLatest!=null?volLatest.toFixed(1):'—'}</div>${sparkline(volSeries,'#5b8def')}</div>`+
+      `<div class="c"><div class="ck">BTC 7d 波动率（年化%）</div><div class="cv">${volLatest!=null?volLatest.toFixed(1):'—'}</div>`+
+      `<div class="vtier" style="color:${vTier.c}">${vTier.t}</div>`+
+      `${sparkline(volSeries,'#5b8def')}</div>`+
       `<div class="c"><div class="ck">滚动 ρ（近30天日度）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
         `<div class="cksub">${rhoNote} ｜ n=${paired.length} 天</div></div>`+
     `</div>`+
-    `<div class="cnote">口径：广度 = 当日去重开口币数（生产三条件：1h 带宽≥50% 且站上轨 + 日线 EMA200&gt;MA200 发散≥2%）；BTC 波动与 ρ 均基于同一历史文件自算，未跨源，避免错配。</div>`+
+    `<div class="cnote">口径：广度 = 当日去重开口币数（生产三条件：1h 带宽≥50% 且站上轨 + 日线 EMA200&gt;MA200 发散≥2%）；BTC 波动与 ρ 均基于同一历史文件自算，未跨源，避免错配。档位：&lt;30% 极平静 ｜ 30%–60% 正常市 ｜ ≥60% 躁动。</div>`+
     `</section>`;
 }
 
