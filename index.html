@@ -120,7 +120,7 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 </details>
 
 <div id="secs" data-page-node-id="BU8PFCnPRnNxZms9NwySBA"></div>
-<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每4小时自动刷新 · 点右上「↻」可立即拉取 · 打开后点「…」→「添加到主屏幕」可当App用</footer>
+<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每4小时自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用</footer>
 
 <div class="modal-mask" id="pendingMask">
   <div class="modal" id="pendingModal">
@@ -348,7 +348,7 @@ function weeklySection(history){
   let bTotal=0; { const s=new Set(); recs.forEach(r=>Array.isArray(r.open_syms)&&r.open_syms.forEach(x=>s.add(x))); bTotal=s.size; }
   const volLatest=(latest&&latest.vol!=null)?latest.vol:(volSeries.length?volSeries[volSeries.length-1]:null);
   const vTier = volTier(volLatest);
-  const rhoNote = rho==null ? '样本不足' : (rho>=0 ? '正相关：BTC 越平静，开口越少' : '负相关');
+  const rhoNote = rho==null ? '样本不足' : ((paired.length<10?'样本少·参考·':'')+(rho>=0 ? '正相关：BTC 越平静开口越少' : '负相关'));
   return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span>`+
     `<span class="cond">近7天去重开口币数 ｜ BTC 7d 年化波动率 ｜ 滚动 ρ(广度,波动)</span></div>`+
     `<div class="cohort-grid">`+
