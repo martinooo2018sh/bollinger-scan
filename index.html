@@ -215,7 +215,7 @@ function renderRules(o){
 function render(o){
   renderRules(o);
   document.getElementById('secs').innerHTML =
-    section('open', o.open) + (SHOW_SQUEEZE ? section('squeeze', o.squeeze) : '') + cohortSection(o) + weeklySection(HISTORY);
+    section('open', o.open) + (SHOW_SQUEEZE ? section('squeeze', o.squeeze) : '') + weeklySection(HISTORY) + cohortSection(o);
 }
 /* ============ cohort 统计（前端复刻 cohort_stats()） ============ */
 function wilson(h, n, z=1.96){
