@@ -383,6 +383,8 @@ async function poll(){
     data.cohort = buildCohort(cohortJson);
     COHORT_SAMPLES = (cohortJson && Array.isArray(cohortJson.samples)) ? cohortJson.samples : [];
     HISTORY = (historyJson && Array.isArray(historyJson)) ? historyJson : [];
+    LAST_DATA = data;
+    updateLive();
     render(data);
   }catch(e){}
 }
@@ -405,11 +407,33 @@ function nextUpdateMs(){
   const nextH=(Math.floor(d.getUTCHours()/4)+1)*4;
   return start+nextH*3600000;
 }
+let LAST_DATA=null;
+function updateLive(){
+  const el=document.getElementById('liveStatus'); if(!el) return;
+  const o=LAST_DATA&&(LAST_DATA.open||LAST_DATA.squeeze);
+  const ga=o&&o.generated_at;
+  if(!ga){ el.textContent='连接中…'; el.style.color='var(--muted,#8aa0c0)'; return; }
+  const t=Date.parse((ga+'').replace(' ','T')+'+08:00');
+  if(isNaN(t)){ el.textContent=ga; el.style.color='var(--muted,#8aa0c0)'; return; }
+  const diffMin=Math.max(0,(shMs()-t)/60000);
+  let ago;
+  if(diffMin<1) ago='刚刚';
+  else if(diffMin<60) ago=Math.round(diffMin)+' 分钟前';
+  else if(diffMin<1440) ago=(Math.round(diffMin/6)/10)+' 小时前';
+  else ago=Math.round(diffMin/1440)+' 天前';
+  let color,dot;
+  if(diffMin<30){color='#3fb6a8';dot='●';}
+  else if(diffMin<240){color='#5b8def';dot='●';}
+  else {color='#e8743b';dot='●';}
+  el.innerHTML=dot+' 最后扫描 '+ago;
+  el.style.color=color;
+}
 function tick(){
   let diff=nextUpdateMs()-shMs(); if(diff<0)diff=0;
   const h=Math.floor(diff/3600000), m=Math.floor(diff%3600000/60000), s=Math.floor(diff%60000/1000);
   const el=document.getElementById('cd');
   if(el)el.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  updateLive();
 }
 poll(); tick(); setInterval(tick, 1000); setInterval(poll, 60000);
 </script>
