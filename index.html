@@ -338,12 +338,14 @@ function weeklySection(history){
   const breadth7=last7.map(x=>x.distinct);
   const volSeries=daily.map(x=>x.vol).filter(v=>v!=null);
   const latest=daily[daily.length-1];
-  // 滚动 ρ：近 30 天日度配对（去重广度 vs BTC 7d 波动），基于同一数据底座自算
-  const xs=daily.map(x=>x.distinct), ys=daily.map(x=>x.vol);
+  // 滚动 ρ：用原始 4h 扫描点（不日聚合），瞬时广度(open_count) vs 当次 BTC 7d 波动，基于同一数据底座自算
+  const xsR=recs.map(r=>(r.open_count!=null?r.open_count:0));
+  const ysR=recs.map(r=>(r.btc_7d_vol!=null?r.btc_7d_vol:null));
   const paired=[];
-  for(let i=0;i<daily.length;i++){ if(xs[i]!=null && ys[i]!=null) paired.push([xs[i],ys[i]]); }
+  for(let i=0;i<recs.length;i++){ if(ysR[i]!=null) paired.push([xsR[i],ysR[i]]); }
   const rho=pearson(paired.map(p=>p[0]), paired.map(p=>p[1]));
-  const bLatest=breadth7.length?breadth7[breadth7.length-1]:0;
+  const lastRec=recs[recs.length-1];
+  const bLatest=(lastRec&&lastRec.open_count!=null)?lastRec.open_count:0;
   const bAvg7=breadth7.length?breadth7.reduce((a,b)=>a+b,0)/breadth7.length:0;
   let bTotal=0; { const s=new Set(); recs.forEach(r=>Array.isArray(r.open_syms)&&r.open_syms.forEach(x=>s.add(x))); bTotal=s.size; }
   const volLatest=(latest&&latest.vol!=null)?latest.vol:(volSeries.length?volSeries[volSeries.length-1]:null);
@@ -352,13 +354,13 @@ function weeklySection(history){
   return `<section class="sec"><div class="sec-h"><span class="tag weekly">周报 · 开口广度 vs BTC 波动</span>`+
     `<span class="cond">近7天去重开口币数 ｜ BTC 7d 年化波动率 ｜ 滚动 ρ(广度,波动)</span></div>`+
     `<div class="cohort-grid">`+
-      `<div class="c"><div class="ck">近7天开口广度（去重/日）</div><div class="cv">${bLatest}</div>${sparkline(breadth7,'var(--orange)')}`+
+      `<div class="c"><div class="ck">最近扫描开口币数</div><div class="cv">${bLatest}</div>${sparkline(breadth7,'var(--orange)')}`+
         `<div class="cksub">7日均 ${bAvg7.toFixed(1)} ｜ 区间累计去重 ${bTotal}</div></div>`+
       `<div class="c"><div class="ck">BTC 7d 波动率（年化%）</div><div class="cv">${volLatest!=null?volLatest.toFixed(1):'—'}</div>`+
       `<div class="vtier" style="color:${vTier.c}">${vTier.t}</div>`+
       `${sparkline(volSeries,'#5b8def')}</div>`+
-      `<div class="c"><div class="ck">滚动 ρ（近30天日度）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
-        `<div class="cksub">${rhoNote} ｜ n=${paired.length} 天</div></div>`+
+      `<div class="c"><div class="ck">滚动 ρ（4h粒度·近30天）</div><div class="cv">${rho!=null?rho.toFixed(3):'—'}</div>`+
+        `<div class="cksub">${rhoNote} ｜ n=${paired.length} 点</div></div>`+
     `</div>`+
     `<div class="cnote">口径：广度 = 当日去重开口币数（生产三条件：1h 带宽≥50% 且站上轨 + 日线 EMA200&gt;MA200 发散≥2%）；BTC 波动与 ρ 均基于同一历史文件自算，未跨源，避免错配。档位：&lt;30% 极平静 ｜ 30%–60% 正常市 ｜ ≥60% 躁动。</div>`+
     `</section>`;
