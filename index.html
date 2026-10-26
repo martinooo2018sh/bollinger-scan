@@ -369,10 +369,11 @@ function weeklySection(history){
 /* ============ 数据拉取：直连 Gist raw（双文件合并） ============ */
 async function poll(){
   try{
+    const bust = "?t=" + Date.now();
     const [dr, cr, hr] = await Promise.all([
-      fetch(GIST.data,   {cache:'no-store'}),
-      fetch(GIST.cohort, {cache:'no-store'}),
-      fetch(GIST.history,{cache:'no-store'})
+      fetch(GIST.data   + bust, {cache:'no-store'}),
+      fetch(GIST.cohort + bust, {cache:'no-store'}),
+      fetch(GIST.history+ bust, {cache:'no-store'})
     ]);
     if(!dr.ok) return;
     const data = await dr.json();
