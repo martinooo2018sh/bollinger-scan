@@ -43,6 +43,9 @@ h1{font-size:19px;margin:0 0 4px;font-weight:700}
 .top{display:flex;align-items:center;justify-content:space-between}
 .sym{font-size:17px;font-weight:700;letter-spacing:.3px}
 .mcap{font-size:12px;color:var(--sub);margin-left:4px;font-weight:400}
+.mtag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.mtag.fut{color:#fff;background:var(--orange)}
+.mtag.spot{color:var(--sub);background:#efeff1;border:1px solid #d9d9de}
 .rank{font-size:12px;color:var(--sub);margin-right:6px}
 .star{font-size:12px;color:#f5a623;font-weight:600;background:#fff7e6;padding:2px 8px;border-radius:999px}
 .price{font-size:26px;font-weight:700;margin:6px 0 2px;font-variant-numeric:tabular-nums}
@@ -158,7 +161,7 @@ function card(r){
   const tierBadge=tier==3?'★★★ 双级别发散':(tier==2?'★★ 日线发散':'');
   const mcapStr=(r.mcap_rank!=null)?`<span class="mcap">（市值 #${r.mcap_rank}）</span>`:'';
   const badge=star(r.streak)+(tierBadge?` <span style="color:var(--orange)">${tierBadge}</span>`:'');
-  return `<div class="card"><div class="top"><div><span class="rank">#${r.rank}</span><span class="sym">${r.symbol}</span>${mcapStr}</div><span class="star">${badge}</span></div>`+
+  return `<div class="card"><div class="top"><div><span class="rank">#${r.rank}</span><span class="sym">${r.symbol}</span>${r.market_tag?`<span class="mtag ${r.market_tag==='仅合约'?'fut':'spot'}">${r.market_tag}</span>`:''}${mcapStr}</div><span class="star">${badge}</span></div>`+
     `<div class="price">${fmtPrice(best.price)}</div>`+
     `<div class="sub">24h成交额 ${Math.round(r.vol24h).toLocaleString('en-US')} USDT</div>`+
     `<div class="stats"><div><span class="k">破上轨%(最强)</span><span class="${up?'up':'down'}">${best.pct_above>=0?'+':''}${best.pct_above.toFixed(2)}%</span></div>`+
