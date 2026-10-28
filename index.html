@@ -123,7 +123,7 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 </details>
 
 <div id="secs" data-page-node-id="BU8PFCnPRnNxZms9NwySBA"></div>
-<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028f</span></footer>
+<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028g</span></footer>
 
 <div class="modal-mask" id="pendingMask">
   <div class="modal" id="pendingModal">
@@ -182,9 +182,8 @@ function card(r){
     `<div class="ivs">命中周期：${ivs}</div></div>`;
 }
 function fmtPrice(x){return x>=1000?x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):x>=1?x.toFixed(4):x.toFixed(6);}
-function fmtDelay(m){ if(m==null) return '-'; if(m===0) return '准时'; if(m<0) return '提前 '+Math.abs(m)+' 分'; return '迟到 '+m+' 分'; }
 function fmtPageDelay(ms){
-  // 页面实际延迟：本页首次渲染该数据版本时刻 - 后台生成时刻(generated_at)，含 push/CDN/轮询/fetch
+  // 单一延迟：本页最近一次刷新显示数据的时刻 - 后台生成时刻(generated_at)
   if(ms==null || isNaN(ms)) return '-';
   if(ms < 0) ms = 0;
   const s = ms/1000;
@@ -200,7 +199,7 @@ function section(key, d){
   return `<section class="sec"><div class="sec-h"><span class="tag ${key==='squeeze'?'squeeze':''}">${d.label}</span>`+
     `<span class="cond">带宽乖离率${sign}${thr}% 且 实时价站上轨${key==='open'?' ｜ ★=EMA-MA(7)≥2%发散':''}</span></div>`+
     `<div class="meta">扫描 ${d.scanned} 个币 ｜ 命中 <b>${d.symbol_count}</b> 个 ｜ 今日已推送 <b>${d.today_count}</b> 次</div>`+
-    `<div class="meta sub2">扫描完成 <b>${d.executed_at||'-'}</b>（UTC+8）｜ 目标整点 <b>${d.slot||'-'}</b> ｜ 扫描偏差 <b>${fmtDelay(d.delay_min)}</b> ｜ 真实延迟 <b>${fmtPageDelay(PAGE_DELAY_MS)}</b>${d.is_refresh?' ｜ 本次为查看刷新（数据未重扫）':' ｜ 本次为整点正式推送'}</div>`+
+    `<div class="meta sub2">扫描完成 <b>${d.executed_at||'-'}</b>（UTC+8）｜ 目标整点 <b>${d.slot||'-'}</b>${d.is_refresh?' ｜ 本次为查看刷新（数据未重扫）':' ｜ 本次为整点正式推送'}</div>`+
     `<div class="list">${inner}</div></section>`;
 }
 function cohortSection(o){
@@ -424,14 +423,13 @@ async function poll(){
   // 两个源都失败：保留上次数据/连接中状态，不破坏现有显示
 }
 function recordPageDelay(data){
-  // 只在「新数据版本」首次到达本页时测量一次，作为该版本送达本页的真实延迟。
-  // 同版本反复轮询/手动刷新不重测，避免把"数据已停留时长"误算成延迟。
+  // 单一延迟：本页成功刷新并显示该数据的时刻 - 后台生成时刻(generated_at)。
+  // 每次成功拉取（自动轮询/手动刷新）都更新，即「最后前端刷新显示数据」的时间差。
   const ga = (data.open && data.open.generated_at) || (data.squeeze && data.squeeze.generated_at);
-  if(!ga || ga === LAST_SEEN_GA) return;
+  if(!ga) return;
   const t = Date.parse((ga+'').replace(' ','T') + '+08:00');
   if(isNaN(t)) return;
-  PAGE_DELAY_MS = Date.now() - t;   // 页面实际更新延迟 = 渲染时刻 - 后台生成时刻
-  LAST_SEEN_GA = ga;
+  PAGE_DELAY_MS = Date.now() - t;
 }
 let _refreshing=false;
 async function doRefresh(){
@@ -453,8 +451,7 @@ function nextUpdateMs(){
   return start+nextH*3600000;
 }
 let LAST_DATA=null;
-let PAGE_DELAY_MS=null;     // 页面实际延迟：本页首次渲染该数据版本时 - generated_at（含 push/CDN/轮询/fetch）
-let LAST_SEEN_GA=null;      // 当前已展示的数据版本锚点(generated_at)，用于只在「新版本」首次到达时测一次
+let PAGE_DELAY_MS=null;     // 单一延迟：本页最近一次刷新显示数据的时刻 - 后台生成时刻(generated_at)
 function updateLive(){
   const el=document.getElementById('liveStatus'); if(!el) return;
   const o=LAST_DATA&&(LAST_DATA.open||LAST_DATA.squeeze);
@@ -462,17 +459,14 @@ function updateLive(){
   if(!ga){ el.textContent='连接中…'; el.style.color='var(--muted,#8aa0c0)'; return; }
   const t=Date.parse((ga+'').replace(' ','T')+'+08:00');
   if(isNaN(t)){ el.textContent=ga; el.style.color='var(--muted,#8aa0c0)'; return; }
-  const diffMin=Math.max(0,(shMs()-t)/60000);
-  let ago;
-  if(diffMin<1) ago='刚刚';
-  else if(diffMin<60) ago=Math.round(diffMin)+' 分钟前';
-  else if(diffMin<1440) ago=(Math.round(diffMin/6)/10)+' 小时前';
-  else ago=Math.round(diffMin/1440)+' 天前';
+  // 单一延迟 = 本页最近一次刷新显示数据的时刻 - 后台生成时刻（无记录时用实时数据年龄兜底）
+  const delayMs = (PAGE_DELAY_MS==null || isNaN(PAGE_DELAY_MS)) ? (Date.now()-t) : PAGE_DELAY_MS;
+  const dMin = delayMs/60000;
   let color,dot;
-  if(diffMin<30){color='#3fb6a8';dot='●';}
-  else if(diffMin<90){color='#5b8def';dot='●';}
+  if(dMin<30){color='#3fb6a8';dot='●';}
+  else if(dMin<90){color='#5b8def';dot='●';}
   else {color='#e8743b';dot='●';}
-  el.innerHTML=dot+' 最后扫描 '+ago+' · 页面延迟 '+fmtPageDelay(PAGE_DELAY_MS);
+  el.innerHTML=dot+' 延迟 '+fmtPageDelay(delayMs);
   el.style.color=color;
 }
 function tick(){
