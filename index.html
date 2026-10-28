@@ -136,9 +136,14 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 <script>
 /* ============ 数据源配置（迭代时只改这里） ============ */
 const GIST = {
-  data:   "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_data_30m.json",
-  cohort: "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_cohort_30m.json",
-  history:"https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_open_history_30m.json"
+  // 方案A：经 Cloudflare Worker 转发（绕开 gist raw 国内限速），2026-10-28 切换
+  data:   "https://bollinger-proxy.martinooo2018sh.workers.dev/data",
+  cohort: "https://bollinger-proxy.martinooo2018sh.workers.dev/cohort",
+  history:"https://bollinger-proxy.martinooo2018sh.workers.dev/history"
+  // 回退用原 Gist raw（Worker 故障时，取消上面三行注释并替换）：
+  // data:   "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_data_30m.json",
+  // cohort: "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_cohort_30m.json",
+  // history:"https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_open_history_30m.json"
 };
 /* =================================================== */
 /* 收口版(挤压)是否显示：聚焦开口版时设为 false 即可隐藏（含列表区与规则说明），改 true 即恢复 */
