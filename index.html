@@ -123,7 +123,7 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 </details>
 
 <div id="secs" data-page-node-id="BU8PFCnPRnNxZms9NwySBA"></div>
-<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028d</span></footer>
+<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028e</span></footer>
 
 <div class="modal-mask" id="pendingMask">
   <div class="modal" id="pendingModal">
@@ -135,13 +135,19 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 
 <script>
 /* ============ 数据源配置（迭代时只改这里） ============ */
+const PAGES = {
+  // 首选：github.io 同源（手机/Mac 都通且快，彻底绕开 workers.dev 与 Gist 限速），2026-10-28 同源化
+  data:   "https://martinooo2018sh.github.io/bollinger-scan/a734_data_30m.json",
+  cohort: "https://martinooo2018sh.github.io/bollinger-scan/a734_cohort_30m.json",
+  history:"https://martinooo2018sh.github.io/bollinger-scan/a734_open_history_30m.json"
+};
 const GIST = {
-  // 首选：Cloudflare Worker 转发（Mac/通 workers.dev 的网络快），2026-10-28 切换
+  // 回退1：Cloudflare Worker 转发（Mac 快；手机网络墙 workers.dev 时跳过）
   data:   "https://bollinger-proxy.martinooo2018sh.workers.dev/data",
   cohort: "https://bollinger-proxy.martinooo2018sh.workers.dev/cohort",
   history:"https://bollinger-proxy.martinooo2018sh.workers.dev/history"
 };
-// 兜底：Worker 不可达时（*.workers.dev 在部分手机网络被墙）自动回退 Gist raw
+// 回退2：Worker 也不可达时自动回退 Gist raw（最终兜底）
 const GIST_BACKUP = {
   data:   "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_data_30m.json",
   cohort: "https://gist.githubusercontent.com/martinooo2018sh/389533a5a78eec77a8f78f742cb210ab/raw/a734_cohort_30m.json",
@@ -399,8 +405,8 @@ async function trySource(src){
   return data;
 }
 async function poll(){
-  // 首选 Worker（Mac 快）；不可达（如手机网络墙 workers.dev）自动回退 Gist raw
-  for(const src of [GIST, GIST_BACKUP]){
+  // 首选 github.io 同源（手机/Mac 都通且快）；不可达则回退 Worker → Gist raw
+  for(const src of [PAGES, GIST, GIST_BACKUP]){
     try{
       const data = await trySource(src);
       if(data){ LAST_DATA = data; updateLive(); render(data); return; }
