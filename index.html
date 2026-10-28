@@ -123,7 +123,7 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 </details>
 
 <div id="secs" data-page-node-id="BU8PFCnPRnNxZms9NwySBA"></div>
-<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028g</span></footer>
+<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028h</span></footer>
 
 <div class="modal-mask" id="pendingMask">
   <div class="modal" id="pendingModal">
@@ -417,19 +417,30 @@ async function poll(){
   for(const src of [PAGES, GIST, GIST_BACKUP]){
     try{
       const data = await trySource(src);
-      if(data){ recordPageDelay(data); LAST_DATA = data; updateLive(); render(data); return; }
+      if(!data) continue;
+      const ga = (data.open && data.open.generated_at) || (data.squeeze && data.squeeze.generated_at);
+      if(ga && ga === LAST_SEEN_GA){
+        // 同数据版本：首次刷新已锁定延迟，后续轮询/手动刷新一律不改页面任何数据
+        return;
+      }
+      recordPageDelay(data);   // 新版本：仅首次测一次延迟
+      LAST_DATA = data;
+      updateLive();
+      render(data);
+      return;
     }catch(e){}
   }
-  // 两个源都失败：保留上次数据/连接中状态，不破坏现有显示
+  // 三个源都失败：保留上次数据/连接中状态，不破坏现有显示
 }
 function recordPageDelay(data){
-  // 单一延迟：本页成功刷新并显示该数据的时刻 - 后台生成时刻(generated_at)。
-  // 每次成功拉取（自动轮询/手动刷新）都更新，即「最后前端刷新显示数据」的时间差。
+  // 单一延迟：只在该数据版本(generated_at)的第一次成功刷新时测量一次，之后锁定。
+  // 同版本后续刷新（自动轮询/手动点）不调用本函数，页面任何数据/延迟均不改。
   const ga = (data.open && data.open.generated_at) || (data.squeeze && data.squeeze.generated_at);
   if(!ga) return;
   const t = Date.parse((ga+'').replace(' ','T') + '+08:00');
   if(isNaN(t)) return;
   PAGE_DELAY_MS = Date.now() - t;
+  LAST_SEEN_GA = ga;
 }
 let _refreshing=false;
 async function doRefresh(){
@@ -451,7 +462,8 @@ function nextUpdateMs(){
   return start+nextH*3600000;
 }
 let LAST_DATA=null;
-let PAGE_DELAY_MS=null;     // 单一延迟：本页最近一次刷新显示数据的时刻 - 后台生成时刻(generated_at)
+let PAGE_DELAY_MS=null;     // 单一延迟：仅在该数据版本首次刷新时测量一次，之后锁定
+let LAST_SEEN_GA=null;      // 已展示的数据版本锚点(generated_at)；同版本刷新一律不改页面
 function updateLive(){
   const el=document.getElementById('liveStatus'); if(!el) return;
   const o=LAST_DATA&&(LAST_DATA.open||LAST_DATA.squeeze);
