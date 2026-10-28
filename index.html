@@ -123,7 +123,7 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:18px}
 </details>
 
 <div id="secs" data-page-node-id="BU8PFCnPRnNxZms9NwySBA"></div>
-<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用</footer>
+<footer data-page-node-id="FgrP30VE4QqSh8RxTFaENc">每30分钟自动重扫 · <span id="liveStatus" style="font-weight:600">连接中…</span> · 点右上「↻」立即拉取 · 打开后「…」→「添加到主屏幕」可当App用 · <span style="opacity:.55">v1028d</span></footer>
 
 <div class="modal-mask" id="pendingMask">
   <div class="modal" id="pendingModal">
@@ -379,8 +379,9 @@ function weeklySection(history){
 /* ============ 数据拉取：优先 Worker，失败/超时回退 Gist raw ============ */
 async function trySource(src){
   const bust = "?t=" + Date.now();
-  const ac = (typeof AbortSignal!=='undefined' && AbortSignal.timeout) ? AbortSignal.timeout(6000) : undefined;
-  const opt = {...(ac ? {signal:ac} : {}), cache:'no-store'};
+  const ac = new AbortController();
+  const _to = setTimeout(()=>{ try{ ac.abort(); }catch(e){} }, 6000);
+  const opt = {signal:ac.signal, cache:'no-store'};
   const [dr, cr, hr] = await Promise.all([
     fetch(src.data   + bust, opt).then(r=>r).catch(()=>null),
     fetch(src.cohort + bust, opt).then(r=>r).catch(()=>null),
@@ -394,6 +395,7 @@ async function trySource(src){
   data.cohort = buildCohort(cohortJson);
   COHORT_SAMPLES = (cohortJson && Array.isArray(cohortJson.samples)) ? cohortJson.samples : [];
   HISTORY = (historyJson && Array.isArray(historyJson)) ? historyJson : [];
+  clearTimeout(_to);
   return data;
 }
 async function poll(){
